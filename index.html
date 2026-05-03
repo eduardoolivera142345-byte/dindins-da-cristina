@@ -114,7 +114,7 @@
 
             const enviarPedido = () => {
                 const itens = carrinho.map(i => `• ${i.qtd}x ${i.nome}`).join('\n');
-                const local = delivery ? `\n*Endereço:* ${cliente.end}` : `\n*Retirada:* Travessa N. Sra. da Conceição, 77`;
+                const local = delivery ? `\n*Endereço:* ${cliente.end}` : `\n*Retirada:* Travessa N. Sra. da Conceição, 77, ponto de referência: Diego cds.`;
                 const txt = `*PEDIDO DINDIN*\n\n*Cliente:* ${cliente.nome}${local}\n\n*Itens:*\n${itens}\n\n*Total:* R$ ${totalValor.toFixed(2)}`;
                 window.open(`https://wa.me/5583998539916?text=${encodeURIComponent(txt)}`);
             };
