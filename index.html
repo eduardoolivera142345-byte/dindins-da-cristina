@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -14,9 +14,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; transition: all 0.3s ease; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         .card-zoom:active { transform: scale(0.96); transition: 0.2s; }
-        input, select { border: 1px solid #fce7f3 !important; }
+        /* Estilo para produto sem estoque */
+        .esgotado { filter: grayscale(1) brightness(0.7); opacity: 0.6; }
     </style>
 </head>
 <body>
@@ -25,7 +26,6 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // --- CONFIGURAÇÃO FIREBASE OFICIAL DO DUDU ---
         const firebaseConfig = {
             apiKey: "AIzaSyA6LYjuCkIM6FVW2TeOFLXxGx1xtgk6DYk",
             authDomain: "dindin-de-cristina.firebaseapp.com",
@@ -36,9 +36,7 @@
             appId: "1:370083027989:web:caa4def3a4f14b6746421c"
         };
         
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
         const LISTA_INICIAL = [
@@ -68,26 +66,18 @@
             const [modal, setModal] = useState(false);
             const [admAberto, setAdmAberto] = useState(false);
             const [cliques, setCliques] = useState(0);
-            const [editandoId, setEditandoId] = useState(null);
             const [form, setForm] = useState({ nome: '', preco: '2.50', categoria: 'Gourmet', imagem: '', estoque: '20', ativo: true });
-            const [cliente, setCliente] = useState({ nome: '', end: '', pgto: 'Pix', troco: '' });
+            const [cliente, setCliente] = useState({ nome: '', end: '', pgto: 'Pix' });
 
             useEffect(() => {
                 const produtosRef = db.ref('produtos');
                 produtosRef.on('value', (snapshot) => {
                     const data = snapshot.val();
-                    if (data) {
-                        setProdutos(Object.values(data));
-                    } else {
-                        db.ref('produtos').set(LISTA_INICIAL);
-                    }
+                    if (data) setProdutos(Object.values(data));
+                    else db.ref('produtos').set(LISTA_INICIAL);
                 });
                 return () => produtosRef.off();
             }, []);
-
-            useEffect(() => {
-                localStorage.setItem('@cor_v19', cor);
-            }, [cor]);
 
             const t = {
                 pink: { bg: '#fff5f7', primary: 'bg-pink-600', text: 'text-pink-600', btn: 'bg-pink-600' },
@@ -100,136 +90,100 @@
             const totalValor = carrinho.reduce((acc, i) => acc + (i.preco * i.qtd), 0);
             const delivery = totalQtd >= 5;
 
-            const pixCodigo = `00020126330014BR.GOV.BCB.PIX011198153351452040000530398654${totalValor.toFixed(2).length.toString().padStart(2,'0')}${totalValor.toFixed(2)}5802BR5925CRISTINA MARTIAS DE OLIVE6011BRASIL62070503***6304`;
-
-            const handleAdminClick = () => {
-                const novoClique = cliques + 1;
-                if (novoClique >= 5) {
-                    const pass = prompt("Digite a senha de acesso:");
-                    if (pass === "142345") setAdmAberto(true);
-                    else if (pass !== null) alert("Senha incorreta!");
+            // CORREÇÃO DA SENHA AQUI
+            const handleHeaderClick = () => {
+                const novoContador = cliques + 1;
+                setCliques(novoContador);
+                if (novoContador >= 5) {
+                    const pass = prompt("Senha Administrativa:");
+                    if (pass === "142345") {
+                        setAdmAberto(true);
+                    } else if (pass !== null) {
+                        alert("Senha incorreta!");
+                    }
                     setCliques(0);
-                } else setCliques(novoClique);
+                }
             };
 
             const salvarSabor = () => {
-                if(!form.nome || !form.imagem) return alert("Preencha o nome e a foto!");
-                const idFinal = editandoId || Date.now();
-                const dados = { ...form, id: idFinal, preco: parseFloat(form.preco), estoque: parseInt(form.estoque) || 0 };
-                db.ref('produtos/' + idFinal).set(dados);
+                if(!form.nome || !form.imagem) return alert("Preencha tudo!");
+                const id = Date.now();
+                db.ref('produtos/' + id).set({ ...form, id, preco: parseFloat(form.preco), estoque: parseInt(form.estoque) });
                 setForm({ nome: '', preco: '2.50', categoria: 'Gourmet', imagem: '', estoque: '20', ativo: true });
-                setEditandoId(null);
             };
 
             const enviarPedido = () => {
-                if(!cliente.nome || (delivery && !cliente.end)) return alert("Preencha os dados!");
                 const itens = carrinho.map(i => `• ${i.qtd}x ${i.nome}`).join('\n');
-                const local = delivery ? `\n*Endereço:* ${cliente.end}` : `\n*Retirada:* Travessa Nossa Senhora da Conceição, n° 77`;
-                const txt = `*PEDIDO DINDIN*\n\n*Cliente:* ${cliente.nome}${local}\n\n*Itens:*\n${itens}\n\n*Total:* R$ ${totalValor.toFixed(2)}\n*Pagamento:* ${cliente.pgto}`;
+                const local = delivery ? `\n*Endereço:* ${cliente.end}` : `\n*Retirada:* Travessa N. Sra. da Conceição, 77`;
+                const txt = `*PEDIDO DINDIN*\n\n*Cliente:* ${cliente.nome}${local}\n\n*Itens:*\n${itens}\n\n*Total:* R$ ${totalValor.toFixed(2)}`;
                 window.open(`https://wa.me/5583998539916?text=${encodeURIComponent(txt)}`);
             };
 
             return (
                 <div style={{ backgroundColor: t.bg, minHeight: '100vh' }}>
-                    <header className={`${t.primary} text-white p-6 rounded-b-[40px] shadow-lg text-center`} onClick={handleAdminClick}>
-                        <h1 className="text-xl font-black uppercase italic tracking-tighter">Cristina Dindins Gourmet</h1>
-                        <p className="text-[10px] font-bold opacity-80 uppercase italic">local de retirada dos dindins: Travessa Nossa Senhora da Conceição, n° 77, ponto de referência:Diego cds.</p>
+                    <header className={`${t.primary} text-white p-6 rounded-b-[40px] shadow-lg text-center`} onClick={handleHeaderClick}>
+                        <h1 className="text-xl font-black uppercase italic">Cristina Dindins Gourmet</h1>
                     </header>
 
                     <div className="p-4 grid grid-cols-2 gap-4 max-w-2xl mx-auto pb-24">
                         {produtos.filter(p => p.ativo).map(p => (
-                            <div key={p.id} className="bg-white p-2 rounded-[30px] shadow-sm relative card-zoom border border-pink-50">
-                                <img src={p.imagem} className={`w-full h-32 object-cover rounded-[25px] mb-2 ${p.estoque <= 0 ? 'grayscale opacity-50' : ''}`} />
+                            <div key={p.id} className={`bg-white p-2 rounded-[30px] shadow-sm border border-pink-50 card-zoom ${p.estoque <= 0 ? 'esgotado' : ''}`}>
+                                <img src={p.imagem} className="w-full h-32 object-cover rounded-[25px] mb-2" />
                                 <h2 className="text-[10px] font-black uppercase px-2 truncate text-gray-400">{p.nome}</h2>
                                 <p className={`${t.text} font-black text-lg px-2`}>R$ {p.preco.toFixed(2)}</p>
                                 <button disabled={p.estoque <= 0} onClick={() => {
                                     const ex = carrinho.find(c => c.id === p.id);
-                                    if(ex && ex.qtd >= p.estoque) return alert("Sem estoque!");
-                                    setCarrinho(prev => ex ? prev.map(i => i.id === p.id ? {...i, qtd: i.qtd+1} : i) : [...prev, {...p, qtd: 1}]);
-                                }} className={`w-full py-3 mt-2 rounded-xl text-[10px] font-black text-white ${p.estoque <= 0 ? 'bg-gray-300' : t.btn}`}>
-                                    {p.estoque <= 0 ? 'ESGOTADO' : 'ADICIONAR'}
+                                    setCarrinho(ex ? carrinho.map(i => i.id === p.id ? {...i, qtd: i.qtd+1} : i) : [...carrinho, {...p, qtd: 1}]);
+                                }} className={`w-full py-3 mt-2 rounded-xl text-[10px] font-black text-white ${p.estoque <= 0 ? 'bg-gray-400' : t.btn}`}>
+                                    {p.estoque <= 0 ? 'SEM ESTOQUE' : 'ADICIONAR'}
                                 </button>
                             </div>
                         ))}
                     </div>
 
                     {totalQtd > 0 && !modal && (
-                        <button onClick={() => setModal(true)} className={`fixed bottom-6 right-6 ${t.btn} text-white p-5 rounded-full shadow-2xl z-50 font-black`}>🛒 {totalQtd}</button>
+                        <button onClick={() => setModal(true)} className={`fixed bottom-6 right-6 ${t.btn} text-white p-5 rounded-full shadow-2xl z-50 font-black animate__animated animate__bounceIn`}>🛒 {totalQtd}</button>
                     )}
 
                     {modal && (
                         <div className="fixed inset-0 bg-black/80 z-[60] flex items-end">
                             <div className="bg-white w-full rounded-t-[40px] p-6 max-h-[90vh] overflow-y-auto">
-                                <div className="flex justify-between mb-4 font-black">
-                                    <h2 className="uppercase italic text-pink-600 text-sm">Meu Carrinho</h2>
-                                    <button onClick={()=>setModal(false)} className="text-gray-400 text-[10px] uppercase font-bold">Fechar</button>
-                                </div>
+                                <button onClick={()=>setModal(false)} className="w-full text-gray-400 text-[10px] font-black uppercase mb-4 text-center">Fechar Carrinho</button>
                                 {carrinho.map(item => (
-                                    <div key={item.id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl mb-2 border border-pink-50">
-                                        <span className="flex-1 text-[10px] font-black uppercase">{item.nome}</span>
-                                        <div className="flex items-center gap-2">
-                                            <button onClick={()=>setCarrinho(carrinho.map(i=>i.id===item.id?{...i,qtd:i.qtd-1}:i).filter(i=>i.qtd>0))} className="w-8 h-8 bg-white rounded-full border shadow-sm font-bold text-gray-500">-</button>
-                                            <span className="font-black text-sm">{item.qtd}</span>
-                                            <button onClick={() => {
-                                                const original = produtos.find(p => p.id === item.id);
-                                                if(item.qtd < original.estoque) setCarrinho(carrinho.map(i => i.id === item.id ? {...i, qtd: i.qtd+1} : i));
-                                            }} className="w-8 h-8 bg-white rounded-full border shadow-sm font-bold text-gray-500">+</button>
-                                        </div>
+                                    <div key={item.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-2xl mb-2">
+                                        <span className="text-[10px] font-black">{item.nome}</span>
+                                        <span className="font-black text-pink-600">x{item.qtd}</span>
                                     </div>
                                 ))}
-                                <div className="mt-6 space-y-3">
-                                    <input type="text" placeholder="SEU NOME" value={cliente.nome} onChange={e=>setCliente({...cliente, nome: e.target.value.toUpperCase()})} className="w-full p-4 rounded-xl font-black text-[10px] outline-none bg-gray-50" />
-                                    {delivery ? (
-                                        <input type="text" placeholder="ENDEREÇO DE ENTREGA" value={cliente.end} onChange={e=>setCliente({...cliente, end: e.target.value.toUpperCase()})} className="w-full p-4 rounded-xl border-2 border-green-500 font-black text-[10px] outline-none" />
-                                    ) : (
-                                        <div className="p-4 bg-orange-50 text-orange-600 rounded-2xl text-center border border-orange-200"><p className="text-[10px] font-black uppercase mb-1">Retirada</p><p className="text-[9px] font-bold leading-tight italic">Travessa Nossa Senhora da Conceição, n° 77</p></div>
-                                    )}
-                                    <div className="flex gap-2">
-                                        {['Pix', 'Dinheiro'].map(m => (
-                                            <button key={m} onClick={()=>setCliente({...cliente, pgto: m})} className={`flex-1 py-3 rounded-xl font-black text-[10px] ${cliente.pgto === m ? t.btn+' text-white' : 'bg-gray-100 text-gray-400'}`}>{m}</button>
-                                        ))}
-                                    </div>
-                                    {cliente.pgto === 'Pix' && (
-                                        <div className="text-center bg-gray-50 p-4 rounded-3xl border border-gray-100">
-                                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(pixCodigo)}`} className="mx-auto mb-2 border-4 border-white rounded-xl shadow-sm" />
-                                            <p className="text-[10px] font-black text-pink-600 mb-1">TOTAL: R$ {totalValor.toFixed(2)}</p>
-                                            <button onClick={() => {navigator.clipboard.writeText(pixCodigo); alert("Copiado!");}} className="bg-white border text-[9px] font-black px-4 py-2 rounded-full shadow-sm active:bg-gray-100 uppercase">📋 Copiar código pix</button>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex justify-between items-center mt-8">
-                                    <span className={`text-2xl font-black ${t.text}`}>R$ {totalValor.toFixed(2)}</span>
-                                    <button onClick={enviarPedido} className="bg-green-500 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] shadow-lg">Pedir no WhatsApp</button>
-                                </div>
+                                <input type="text" placeholder="SEU NOME" className="w-full p-4 mt-4 bg-gray-50 rounded-xl font-black text-[10px] outline-none" onChange={e=>setCliente({...cliente, nome: e.target.value.toUpperCase()})} />
+                                {delivery && <input type="text" placeholder="ENDEREÇO COMPLETO" className="w-full p-4 mt-2 border-2 border-green-500 rounded-xl font-black text-[10px] outline-none" onChange={e=>setCliente({...cliente, end: e.target.value.toUpperCase()})} />}
+                                <button onClick={enviarPedido} className="w-full bg-green-500 text-white p-5 mt-4 rounded-2xl font-black uppercase text-[10px]">Enviar para WhatsApp</button>
                             </div>
                         </div>
                     )}
 
                     {admAberto && (
-                        <div className="fixed inset-0 bg-white z-[100] p-6 overflow-y-auto animate__animated animate__fadeIn">
-                            <div className="flex justify-between items-center mb-6 border-b pb-4 font-black">
-                                <h2 className="text-pink-600 uppercase italic">Gestão</h2>
-                                <button onClick={() => {setAdmAberto(false); setEditandoId(null)}} className="bg-pink-600 text-white px-4 py-2 rounded-xl text-[10px] uppercase font-black">Sair</button>
+                        <div className="fixed inset-0 bg-white z-[100] p-6 overflow-y-auto">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="font-black text-pink-600 uppercase italic">Painel de Controle</h2>
+                                <button onClick={() => setAdmAberto(false)} className="bg-pink-600 text-white px-4 py-2 rounded-xl font-black text-[10px]">FECHAR</button>
                             </div>
-                            <div className="bg-pink-50 p-5 rounded-[30px] mb-8 space-y-3 font-black">
-                                <input type="text" placeholder="NOME DO SABOR" value={form.nome} onChange={e=>setForm({...form, nome: e.target.value.toUpperCase()})} className="w-full p-3 rounded-xl text-[10px] outline-none" />
-                                <div className="grid grid-cols-2 gap-3">
-                                    <input type="number" placeholder="Preço" value={form.preco} onChange={e=>setForm({...form, preco: e.target.value})} className="p-3 rounded-xl text-[10px]" />
-                                    <input type="number" placeholder="Estoque" value={form.estoque} onChange={e=>setForm({...form, estoque: e.target.value})} className="p-3 rounded-xl text-[10px]" />
+                            <div className="bg-pink-50 p-5 rounded-[30px] mb-8 space-y-3">
+                                <input type="text" placeholder="NOME DO SABOR" value={form.nome} onChange={e=>setForm({...form, nome: e.target.value.toUpperCase()})} className="w-full p-3 rounded-xl text-[10px] font-black" />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input type="number" placeholder="PREÇO" value={form.preco} onChange={e=>setForm({...form, preco: e.target.value})} className="p-3 rounded-xl text-[10px]" />
+                                    <input type="number" placeholder="ESTOQUE" value={form.estoque} onChange={e=>setForm({...form, estoque: e.target.value})} className="p-3 rounded-xl text-[10px]" />
                                 </div>
-                                <input type="text" placeholder="LINK FOTO" value={form.imagem} onChange={e=>setForm({...form, imagem: e.target.value})} className="w-full p-3 rounded-xl text-[10px]" />
-                                <button onClick={salvarSabor} className="w-full bg-pink-500 text-white py-4 rounded-xl font-black uppercase text-[10px]">SALVAR</button>
+                                <input type="text" placeholder="URL DA IMAGEM" value={form.imagem} onChange={e=>setForm({...form, imagem: e.target.value})} className="w-full p-3 rounded-xl text-[10px]" />
+                                <button onClick={salvarSabor} className="w-full bg-pink-600 text-white py-4 rounded-xl font-black text-[10px]">ADICIONAR NOVO SABOR</button>
                             </div>
-                            <div className="space-y-3 pb-20">
+                            <div className="space-y-2">
                                 {produtos.map(p => (
-                                    <div key={p.id} className={`flex items-center gap-3 p-3 rounded-[25px] border-2 ${p.ativo ? 'bg-white border-pink-50' : 'bg-gray-100 opacity-60'}`}>
-                                        <img src={p.imagem} className="w-12 h-12 rounded-xl object-cover" />
-                                        <div className="flex-1 min-w-0 font-black">
-                                            <p className="text-[9px] uppercase truncate">{p.nome}</p>
-                                            <p className="text-pink-600 text-[8px]">R$ {p.preco.toFixed(2)} | Estoque: {p.estoque}</p>
-                                        </div>
+                                    <div key={p.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
+                                        <img src={p.imagem} className="w-10 h-10 rounded-lg object-cover" />
+                                        <div className="flex-1"><p className="text-[9px] font-black uppercase">{p.nome}</p><p className="text-[8px]">QTD: {p.estoque}</p></div>
                                         <button onClick={() => db.ref('produtos/' + p.id).update({ ativo: !p.ativo })}>{p.ativo ? '✅' : '❌'}</button>
-                                        <button onClick={() => {if(confirm("Excluir?")) db.ref('produtos/' + p.id).remove()}}>🗑️</button>
+                                        <button onClick={() => {if(confirm("Apagar?")) db.ref('produtos/' + p.id).remove()}}>🗑️</button>
                                     </div>
                                 ))}
                             </div>
@@ -239,7 +193,8 @@
             );
         }
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
