@@ -72,17 +72,13 @@
             const [form, setForm] = useState({ nome: '', preco: '2.50', categoria: 'Gourmet', imagem: '', estoque: '20', ativo: true });
             const [cliente, setCliente] = useState({ nome: '', end: '', pgto: 'Pix', troco: '' });
 
-            // Sincroniza com Firebase Realtime Database
             useEffect(() => {
                 const produtosRef = db.ref('produtos');
                 produtosRef.on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
-                        // Converte objeto do Firebase em Array para o React
-                        const lista = Object.values(data);
-                        setProdutos(lista);
+                        setProdutos(Object.values(data));
                     } else {
-                        // Se o banco estiver vazio (primeira vez), envia a lista inicial
                         db.ref('produtos').set(LISTA_INICIAL);
                     }
                 });
@@ -106,19 +102,21 @@
 
             const pixCodigo = `00020126330014BR.GOV.BCB.PIX011198153351452040000530398654${totalValor.toFixed(2).length.toString().padStart(2,'0')}${totalValor.toFixed(2)}5802BR5925CRISTINA MARTIAS DE OLIVE6011BRASIL62070503***6304`;
 
-            const copiarPix = () => {
-                navigator.clipboard.writeText(pixCodigo);
-                alert("Código Pix copiado!");
+            const handleAdminClick = () => {
+                const novoClique = cliques + 1;
+                if (novoClique >= 5) {
+                    const pass = prompt("Digite a senha de acesso:");
+                    if (pass === "142345") setAdmAberto(true);
+                    else if (pass !== null) alert("Senha incorreta!");
+                    setCliques(0);
+                } else setCliques(novoClique);
             };
 
             const salvarSabor = () => {
                 if(!form.nome || !form.imagem) return alert("Preencha o nome e a foto!");
                 const idFinal = editandoId || Date.now();
                 const dados = { ...form, id: idFinal, preco: parseFloat(form.preco), estoque: parseInt(form.estoque) || 0 };
-                
-                // Salva no Firebase (ele atualiza a lista automaticamente via useEffect)
                 db.ref('produtos/' + idFinal).set(dados);
-                
                 setForm({ nome: '', preco: '2.50', categoria: 'Gourmet', imagem: '', estoque: '20', ativo: true });
                 setEditandoId(null);
             };
@@ -126,32 +124,16 @@
             const enviarPedido = () => {
                 if(!cliente.nome || (delivery && !cliente.end)) return alert("Preencha os dados!");
                 const itens = carrinho.map(i => `• ${i.qtd}x ${i.nome}`).join('\n');
-                const local = delivery ? `\n*Endereço:* ${cliente.end}` : `\n*Retirada:* Travessa Nossa Senhora da Conceição, n° 77 (Ref: Diego CDs)`;
-                const trocoMsg = cliente.pgto === 'Dinheiro' && cliente.troco ? `\n*Troco para:* R$ ${cliente.troco}` : '';
-                const txt = `*PEDIDO DINDIN*\n\n*Cliente:* ${cliente.nome}${local}\n\n*Itens:*\n${itens}\n\n*Total:* R$ ${totalValor.toFixed(2)}\n*Pagamento:* ${cliente.pgto}${trocoMsg}`;
+                const local = delivery ? `\n*Endereço:* ${cliente.end}` : `\n*Retirada:* Travessa Nossa Senhora da Conceição, n° 77`;
+                const txt = `*PEDIDO DINDIN*\n\n*Cliente:* ${cliente.nome}${local}\n\n*Itens:*\n${itens}\n\n*Total:* R$ ${totalValor.toFixed(2)}\n*Pagamento:* ${cliente.pgto}`;
                 window.open(`https://wa.me/5583998539916?text=${encodeURIComponent(txt)}`);
-            };
-
-            const handleAdminClick = () => {
-                const novoClique = cliques + 1;
-                if (novoClique >= 5) {
-                    const pass = prompt("Digite a senha de acesso:");
-                    if (pass === "142345") {
-                        setAdmAberto(true);
-                    } else if (pass !== null) {
-                        alert("Senha incorreta!");
-                    }
-                    setCliques(0);
-                } else {
-                    setCliques(novoClique);
-                }
             };
 
             return (
                 <div style={{ backgroundColor: t.bg, minHeight: '100vh' }}>
                     <header className={`${t.primary} text-white p-6 rounded-b-[40px] shadow-lg text-center`} onClick={handleAdminClick}>
                         <h1 className="text-xl font-black uppercase italic tracking-tighter">Cristina Dindins Gourmet</h1>
-                        <p className="text-[10px] font-bold opacity-80 uppercase">Travessa Nossa Senhora da Conceição, n° 77 (Ref: Diego CDs)</p>
+                        <p className="text-[10px] font-bold opacity-80 uppercase italic">Travessa Nossa Senhora da Conceição, n° 77</p>
                     </header>
 
                     <div className="p-4 grid grid-cols-2 gap-4 max-w-2xl mx-auto pb-24">
@@ -172,9 +154,7 @@
                     </div>
 
                     {totalQtd > 0 && !modal && (
-                        <button onClick={() => setModal(true)} className={`fixed bottom-6 right-6 ${t.btn} text-white p-5 rounded-full shadow-2xl z-50 font-black`}>
-                            🛒 {totalQtd}
-                        </button>
+                        <button onClick={() => setModal(true)} className={`fixed bottom-6 right-6 ${t.btn} text-white p-5 rounded-full shadow-2xl z-50 font-black`}>🛒 {totalQtd}</button>
                     )}
 
                     {modal && (
@@ -199,35 +179,24 @@
                                 ))}
                                 <div className="mt-6 space-y-3">
                                     <input type="text" placeholder="SEU NOME" value={cliente.nome} onChange={e=>setCliente({...cliente, nome: e.target.value.toUpperCase()})} className="w-full p-4 rounded-xl font-black text-[10px] outline-none bg-gray-50" />
-                                    
                                     {delivery ? (
                                         <input type="text" placeholder="ENDEREÇO DE ENTREGA" value={cliente.end} onChange={e=>setCliente({...cliente, end: e.target.value.toUpperCase()})} className="w-full p-4 rounded-xl border-2 border-green-500 font-black text-[10px] outline-none" />
                                     ) : (
-                                        <div className="p-4 bg-orange-50 text-orange-600 rounded-2xl text-center border border-orange-200">
-                                            <p className="text-[10px] font-black uppercase mb-1">Retirada</p>
-                                            <p className="text-[9px] font-bold leading-tight italic">Lembre-se que é para retirar os dindins nesse endereço: Travessa Nossa Senhora da Conceição, n° 77 referência: Diego CDs.</p>
-                                        </div>
+                                        <div className="p-4 bg-orange-50 text-orange-600 rounded-2xl text-center border border-orange-200"><p className="text-[10px] font-black uppercase mb-1">Retirada</p><p className="text-[9px] font-bold leading-tight italic">Travessa Nossa Senhora da Conceição, n° 77</p></div>
                                     )}
-
                                     <div className="flex gap-2">
                                         {['Pix', 'Dinheiro'].map(m => (
                                             <button key={m} onClick={()=>setCliente({...cliente, pgto: m})} className={`flex-1 py-3 rounded-xl font-black text-[10px] ${cliente.pgto === m ? t.btn+' text-white' : 'bg-gray-100 text-gray-400'}`}>{m}</button>
                                         ))}
                                     </div>
-                                    
-                                    {cliente.pgto === 'Dinheiro' && <input type="number" placeholder="TROCO PARA QUANTO?" value={cliente.troco} onChange={e=>setCliente({...cliente, troco: e.target.value})} className="w-full p-4 rounded-xl border font-black text-[10px] outline-none" />}
-                                    
                                     {cliente.pgto === 'Pix' && (
                                         <div className="text-center bg-gray-50 p-4 rounded-3xl border border-gray-100">
                                             <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(pixCodigo)}`} className="mx-auto mb-2 border-4 border-white rounded-xl shadow-sm" />
-                                            <p className="text-[10px] font-black text-pink-600 mb-1">VALOR TOTAL: R$ {totalValor.toFixed(2)}</p>
-                                            <p className="text-[8px] font-bold text-gray-500 leading-none">CRISTINA MARTIAS DE OLIVEIRA</p>
-                                            <p className="text-[8px] font-bold text-gray-400 mb-3 uppercase">Instituição: Nubank</p>
-                                            <button onClick={copiarPix} className="bg-white border text-[9px] font-black px-4 py-2 rounded-full shadow-sm active:bg-gray-100 uppercase">📋 Copiar código pix</button>
+                                            <p className="text-[10px] font-black text-pink-600 mb-1">TOTAL: R$ {totalValor.toFixed(2)}</p>
+                                            <button onClick={() => {navigator.clipboard.writeText(pixCodigo); alert("Copiado!");}} className="bg-white border text-[9px] font-black px-4 py-2 rounded-full shadow-sm active:bg-gray-100 uppercase">📋 Copiar código pix</button>
                                         </div>
                                     )}
                                 </div>
-
                                 <div className="flex justify-between items-center mt-8">
                                     <span className={`text-2xl font-black ${t.text}`}>R$ {totalValor.toFixed(2)}</span>
                                     <button onClick={enviarPedido} className="bg-green-500 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] shadow-lg">Pedir no WhatsApp</button>
@@ -245,13 +214,32 @@
                             <div className="bg-pink-50 p-5 rounded-[30px] mb-8 space-y-3 font-black">
                                 <input type="text" placeholder="NOME DO SABOR" value={form.nome} onChange={e=>setForm({...form, nome: e.target.value.toUpperCase()})} className="w-full p-3 rounded-xl text-[10px] outline-none" />
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-white p-3 rounded-xl flex items-center justify-between">
-                                        <span className="text-[8px] text-gray-400 mr-2 uppercase italic">Preço</span>
-                                        <input type="number" value={form.preco} onChange={e=>setForm({...form, preco: e.target.value})} className="w-full text-right font-black outline-none bg-transparent" />
-                                    </div>
-                                    <div className="bg-white p-3 rounded-xl flex items-center justify-between">
-                                        <span className="text-[8px] text-pink-400 mr-2 uppercase italic">Estoque</span>
-                                        <input type="number" value={form.estoque} onChange={e=>setForm({...form, estoque: e.target.value})} className="w-full text-right font-black text-pink-600 outline-none bg-transparent" />
-                                    </div>
+                                    <input type="number" placeholder="Preço" value={form.preco} onChange={e=>setForm({...form, preco: e.target.value})} className="p-3 rounded-xl text-[10px]" />
+                                    <input type="number" placeholder="Estoque" value={form.estoque} onChange={e=>setForm({...form, estoque: e.target.value})} className="p-3 rounded-xl text-[10px]" />
                                 </div>
-                                <input type="text" placeholder="LINK DA FOTO" value={form.imagem} onChange={e=>setForm({...form, imagem: e.tar
+                                <input type="text" placeholder="LINK FOTO" value={form.imagem} onChange={e=>setForm({...form, imagem: e.target.value})} className="w-full p-3 rounded-xl text-[10px]" />
+                                <button onClick={salvarSabor} className="w-full bg-pink-500 text-white py-4 rounded-xl font-black uppercase text-[10px]">SALVAR</button>
+                            </div>
+                            <div className="space-y-3 pb-20">
+                                {produtos.map(p => (
+                                    <div key={p.id} className={`flex items-center gap-3 p-3 rounded-[25px] border-2 ${p.ativo ? 'bg-white border-pink-50' : 'bg-gray-100 opacity-60'}`}>
+                                        <img src={p.imagem} className="w-12 h-12 rounded-xl object-cover" />
+                                        <div className="flex-1 min-w-0 font-black">
+                                            <p className="text-[9px] uppercase truncate">{p.nome}</p>
+                                            <p className="text-pink-600 text-[8px]">R$ {p.preco.toFixed(2)} | Estoque: {p.estoque}</p>
+                                        </div>
+                                        <button onClick={() => db.ref('produtos/' + p.id).update({ ativo: !p.ativo })}>{p.ativo ? '✅' : '❌'}</button>
+                                        <button onClick={() => {if(confirm("Excluir?")) db.ref('produtos/' + p.id).remove()}}>🗑️</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
